@@ -7,7 +7,7 @@
     "start": "node server.js",
     "seed": "node seed.js",
     "lint": "eslint .",
-    "test": "node --test test/**/*.test.js"
+    "test": "find test -name '*.test.js' | xargs node --test"
   },
   "dependencies": {
     "express": "^5.2.1",
