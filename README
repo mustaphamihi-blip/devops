@@ -26,6 +26,12 @@ yarn start
 yarn test
 ```
 
+## Run App with docker compose
+
+```sh
+docker compose up
+```
+
 ## Author
 
 👤 **Mustapha MIHI**
