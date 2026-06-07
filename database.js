@@ -1,83 +1,77 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
-const fs = require('fs');
+const { Pool } = require('pg');
 
-const DATA_DIR = path.join(__dirname, 'data');
-const DB_FILE = path.join(DATA_DIR, 'database.sqlite');
+const pool = new Pool({
+  host: process.env.DB_HOST || 'localhost',
+  port: process.env.DB_PORT || 5432,
+  user: process.env.DB_USER || 'postgres',
+  password: process.env.DB_PASSWORD || 'postgres',
+  database: process.env.DB_NAME || 'mihi_db'
+});
 
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+// Helper functions matching SQLite signatures to minimize changes in server.js
+async function run(sql, params = []) {
+  // Replace sqlite style ? placeholders with $1, $2 for Postgres
+  const pgSql = convertPlaceholders(sql);
+  const res = await pool.query(pgSql, params);
+  return { id: res.insertId, changes: res.rowCount };
 }
 
-const db = new sqlite3.Database(DB_FILE);
-
-// Helper to wrap db.run, db.get, db.all in Promises
-function run(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.run(sql, params, function (err) {
-      if (err) reject(err);
-      else resolve({ id: this.lastID, changes: this.changes });
-    });
-  });
+async function get(sql, params = []) {
+  const pgSql = convertPlaceholders(sql);
+  const res = await pool.query(pgSql, params);
+  return res.rows[0] || null;
 }
 
-function get(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.get(sql, params, (err, row) => {
-      if (err) reject(err);
-      else resolve(row);
-    });
-  });
+async function all(sql, params = []) {
+  const pgSql = convertPlaceholders(sql);
+  const res = await pool.query(pgSql, params);
+  return res.rows;
 }
 
-function all(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.all(sql, params, (err, rows) => {
-      if (err) reject(err);
-      else resolve(rows);
-    });
-  });
+// Convert SQLite '?' to PostgreSQL '$1', '$2', ...
+function convertPlaceholders(sql) {
+  let index = 1;
+  return sql.replace(/\?/g, () => `$${index++}`);
 }
 
 async function initDB() {
   // Create Users Table
   await run(`
     CREATE TABLE IF NOT EXISTS users (
-      email TEXT PRIMARY KEY,
-      password TEXT NOT NULL,
-      name TEXT NOT NULL,
-      role TEXT NOT NULL,
-      studentId TEXT
+      email VARCHAR(255) PRIMARY KEY,
+      password VARCHAR(255) NOT NULL,
+      name VARCHAR(255) NOT NULL,
+      role VARCHAR(50) NOT NULL,
+      studentId VARCHAR(50)
     )
   `);
 
   // Create Students Table
   await run(`
     CREATE TABLE IF NOT EXISTS students (
-      id TEXT PRIMARY KEY,
-      firstName TEXT NOT NULL,
-      lastName TEXT NOT NULL,
-      email TEXT NOT NULL UNIQUE,
-      birthDate TEXT,
-      class TEXT
+      id VARCHAR(50) PRIMARY KEY,
+      firstName VARCHAR(255) NOT NULL,
+      lastName VARCHAR(255) NOT NULL,
+      email VARCHAR(255) NOT NULL UNIQUE,
+      birthDate VARCHAR(50),
+      class VARCHAR(255)
     )
   `);
 
   // Create Grades Table
   await run(`
     CREATE TABLE IF NOT EXISTS grades (
-      id TEXT PRIMARY KEY,
-      studentId TEXT NOT NULL,
-      subject TEXT NOT NULL,
-      score REAL NOT NULL,
-      coefficient INTEGER NOT NULL,
-      FOREIGN KEY (studentId) REFERENCES students (id) ON DELETE CASCADE
+      id VARCHAR(50) PRIMARY KEY,
+      studentId VARCHAR(50) NOT NULL REFERENCES students (id) ON DELETE CASCADE,
+      subject VARCHAR(255) NOT NULL,
+      score NUMERIC(4,2) NOT NULL,
+      coefficient INTEGER NOT NULL
     )
   `);
 
   // Seed default data if empty
   const userCount = await get(`SELECT COUNT(*) as count FROM users`);
-  if (userCount.count === 0) {
+  if (parseInt(userCount.count) === 0) {
     // Insert Users
     await run(`INSERT INTO users (email, password, name, role, studentId) VALUES (?, ?, ?, ?, ?)`, 
       ['admin@school.com', 'admin123', 'Jean Admin', 'admin', null]);
@@ -113,5 +107,6 @@ module.exports = {
   run,
   get,
   all,
-  initDB
+  initDB,
+  pool
 };
