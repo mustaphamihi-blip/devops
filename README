@@ -1,0 +1,4 @@
+Application web permettant l'inscription, la consultation et la mise à
+jour des fiches étudiants (CRUD), avec gestion des notes et export
+des relevés. Possibilité d'ajouter une authentification par rôle
+(administrateur / enseignant / étudiant).
