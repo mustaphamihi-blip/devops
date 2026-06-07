@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "seed": "node seed.js",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "node --test test/**/*.test.js"
   },
   "dependencies": {
     "express": "^5.2.1",
