@@ -1,4 +1,39 @@
-Application web permettant l'inscription, la consultation et la mise à
-jour des fiches étudiants (CRUD), avec gestion des notes et export
-des relevés. Possibilité d'ajouter une authentification par rôle
-(administrateur / enseignant / étudiant).
+<h1 align="center">Welcome to Projet devops 👋</h1>
+<p>
+  <img alt="Version" src="https://img.shields.io/badge/version-1.0.0-blue.svg?cacheSeconds=2592000" />
+  <a href="#" target="_blank">
+    <img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg" />
+  </a>
+</p>
+
+> Application web permettant l'inscription, la consultation et la mise à jour des fiches étudiants (CRUD), avec gestion des notes et export des relevés. Possibilité d'ajouter une authentification par rôle (administrateur / enseignant / étudiant).
+
+## Install
+
+```sh
+yarn install
+```
+
+## Usage
+
+```sh
+yarn start
+```
+
+## Run tests
+
+```sh
+yarn test
+```
+
+## Author
+
+👤 **Mustapha MIHI**
+
+
+## Show your support
+
+Give a ⭐️ if this project helped you!
+
+***
+_This README was generated with ❤️ by [readme-md-generator](https://github.com/kefranabg/readme-md-generator)_
