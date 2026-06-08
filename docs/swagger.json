@@ -1,0 +1,367 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Mihi API",
+    "version": "1.0.0",
+    "description": "Student management API with authentication, student CRUD, grades, and transcripts."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000/api",
+      "description": "Local development server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "BearerToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "Base64",
+        "description": "Base64-encoded JSON payload: { email, role }"
+      }
+    },
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "email": { "type": "string" },
+          "role": { "type": "string", "enum": ["admin", "teacher", "student"] },
+          "studentId": { "type": "string", "nullable": true }
+        }
+      },
+      "Student": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "example": "STU001" },
+          "firstName": { "type": "string" },
+          "lastName": { "type": "string" },
+          "email": { "type": "string" },
+          "birthDate": { "type": "string" },
+          "class": { "type": "string" },
+          "grades": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Grade" }
+          }
+        }
+      },
+      "Grade": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "studentId": { "type": "string" },
+          "subject": { "type": "string" },
+          "score": { "type": "number" },
+          "coefficient": { "type": "number" }
+        }
+      },
+      "Transcript": {
+        "type": "object",
+        "properties": {
+          "student": { "$ref": "#/components/schemas/Student" },
+          "grades": {
+            "type": "array",
+            "items": {
+              "allOf": [
+                { "$ref": "#/components/schemas/Grade" },
+                {
+                  "type": "object",
+                  "properties": {
+                    "weightedScore": { "type": "number" }
+                  }
+                }
+              ]
+            }
+          },
+          "gpa": { "type": "number", "example": 13.5 },
+          "totalCoefficient": { "type": "number" },
+          "status": { "type": "string", "enum": ["Admis", "Ajourné"] },
+          "dateGenerated": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string" }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Authenticate user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string" },
+                  "password": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": { "type": "string" },
+                    "user": { "$ref": "#/components/schemas/User" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Invalid credentials", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Register a new user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "email", "password", "role"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "email": { "type": "string" },
+                  "password": { "type": "string" },
+                  "role": { "type": "string", "enum": ["admin", "teacher", "student"] },
+                  "studentId": { "type": "string", "description": "Required when role is student" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Account created successfully" },
+          "400": { "description": "Missing fields or email already in use", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/students": {
+      "get": {
+        "tags": ["Students"],
+        "summary": "List all students with grades",
+        "security": [{ "BearerToken": [] }],
+        "description": "Accessible by admin and teacher roles only.",
+        "responses": {
+          "200": {
+            "description": "Array of students",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Student" } }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "403": { "description": "Forbidden", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "post": {
+        "tags": ["Students"],
+        "summary": "Create a new student",
+        "security": [{ "BearerToken": [] }],
+        "description": "Accessible by admin role only. Auto-generates student ID and creates a login account.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["firstName", "lastName", "email"],
+                "properties": {
+                  "firstName": { "type": "string" },
+                  "lastName": { "type": "string" },
+                  "email": { "type": "string" },
+                  "birthDate": { "type": "string" },
+                  "class": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Student created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Student" } } } },
+          "400": { "description": "Missing required fields", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "403": { "description": "Forbidden", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/students/{id}": {
+      "get": {
+        "tags": ["Students"],
+        "summary": "Get a student by ID",
+        "security": [{ "BearerToken": [] }],
+        "description": "Students can only access their own record.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "example": "STU001" }
+        ],
+        "responses": {
+          "200": { "description": "Student with grades", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Student" } } } },
+          "403": { "description": "Student accessing another's record", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "404": { "description": "Student not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "put": {
+        "tags": ["Students"],
+        "summary": "Update a student",
+        "security": [{ "BearerToken": [] }],
+        "description": "Accessible by admin role only.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "example": "STU001" }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "firstName": { "type": "string" },
+                  "lastName": { "type": "string" },
+                  "email": { "type": "string" },
+                  "birthDate": { "type": "string" },
+                  "class": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated student", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Student" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "403": { "description": "Forbidden", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "404": { "description": "Student not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "delete": {
+        "tags": ["Students"],
+        "summary": "Delete a student",
+        "security": [{ "BearerToken": [] }],
+        "description": "Accessible by admin role only. Also deletes associated grades and user account.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "example": "STU001" }
+        ],
+        "responses": {
+          "200": { "description": "Student deleted successfully" },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "403": { "description": "Forbidden", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "404": { "description": "Student not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/students/{id}/grades": {
+      "post": {
+        "tags": ["Grades"],
+        "summary": "Add a grade to a student",
+        "security": [{ "BearerToken": [] }],
+        "description": "Accessible by admin and teacher roles.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "example": "STU001" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["subject", "score", "coefficient"],
+                "properties": {
+                  "subject": { "type": "string" },
+                  "score": { "type": "number", "minimum": 0, "maximum": 20 },
+                  "coefficient": { "type": "number" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Grade created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Grade" } } } },
+          "400": { "description": "Missing required fields", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "403": { "description": "Forbidden", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "404": { "description": "Student not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/students/{id}/grades/{gradeId}": {
+      "put": {
+        "tags": ["Grades"],
+        "summary": "Update a grade",
+        "security": [{ "BearerToken": [] }],
+        "description": "Accessible by admin and teacher roles.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "example": "STU001" },
+          { "name": "gradeId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "score": { "type": "number" },
+                  "coefficient": { "type": "number" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated grade", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Grade" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "403": { "description": "Forbidden", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "404": { "description": "Student or grade not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "delete": {
+        "tags": ["Grades"],
+        "summary": "Delete a grade",
+        "security": [{ "BearerToken": [] }],
+        "description": "Accessible by admin and teacher roles.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "example": "STU001" },
+          { "name": "gradeId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Grade deleted successfully" },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "403": { "description": "Forbidden", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "404": { "description": "Grade not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/students/{id}/transcript": {
+      "get": {
+        "tags": ["Transcript"],
+        "summary": "Get student transcript with GPA",
+        "security": [{ "BearerToken": [] }],
+        "description": "Students can only access their own transcript. GPA is weighted by coefficient.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "example": "STU001" }
+        ],
+        "responses": {
+          "200": { "description": "Transcript with GPA and status", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Transcript" } } } },
+          "403": { "description": "Student accessing another's transcript", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "404": { "description": "Student not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    }
+  }
+}
